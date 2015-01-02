@@ -439,6 +439,18 @@ function Match_mt:__gc()
   pcre.pcre_refcount(self._re, -1)
 end
 
+local function _iterate(data)
+  local index = data.group
+  data.group = data.group+1 
+  if index < data.match._ovectorsize then
+    return data.match:groupinfo(index)
+  end
+end
+
+function Match:itergroups()
+  return _iterate, {match=self, group=1}
+end
+
 function Match:groups()
   return self._groups
 end
@@ -453,7 +465,11 @@ function Match:_populateGroupIndex(n)
   if result < 0 then
     error("error extracting string")
   end
-  self._groups[n] = ffi.string(buffer[0])
+  self._groups[n] = {
+    value = ffi.string(buffer[0]),
+    start_index = self._ovector[n*2],
+    end_index = self._ovector[n*2+1]
+  }
 end
 
 function Match:_populateGroupName(n)
@@ -465,7 +481,14 @@ function Match:_populateGroupName(n)
   if result < 0 then
     error("error extracting string")
   end
-  self._groups[n] = ffi.string(buffer[0])
+  self._groups[n] = {
+    value = ffi.string(buffer[0]),
+  }
+  local groupIndex = pcre.pcre_get_stringnumber(self._re, tostring(n))
+  if groupIndex > 0 then
+    self._groups[n].start_index = self._ovector[groupIndex*2] 
+    self._groups[n].end_index = self._ovector[groupIndex*2+1]
+  end 
 end
 
 function Match:group(n)
@@ -479,7 +502,27 @@ function Match:group(n)
   elseif type(n) == "string" then
     self:_populateGroupName(n)
   end
-  return self._groups[n]
+  local g = self._groups[n]
+  if g then
+    return g.value
+  end
+end
+
+function Match:groupinfo(n)
+  if type(n) == "number" then
+    if not self:_validGroupIndex(n) then
+      return
+    end
+    if not self._groups[n] then
+      self:_populateGroupIndex(n)
+    end
+  elseif type(n) == "string" then
+    self:_populateGroupName(n)
+  end
+  local g = self._groups[n]
+  if g then
+    return g.value, g.start_index, g.end_index
+  end
 end
 
 setmetatable(Match, {

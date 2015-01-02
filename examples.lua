@@ -78,3 +78,6 @@ printColor('#fffff')
 printColor('rgb(255,255,127)')
 printColor('rg(255,255,127)')
 
+for value, start_index, end_index in hexparser_rgb:match('rgb(63,127,191)'):itergroups() do
+  print(string.format("Found \'%s\' between %d and %d (inclusive)", value, start_index, end_index))
+end
