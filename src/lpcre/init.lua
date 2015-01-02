@@ -558,6 +558,10 @@ function lpcre.compile(pattern, ...)
   return CompiledPattern(re)
 end
 
+function lpcre:match(pattern, subject, ...)
+  return lpcre.compile(pattern):match(subject)
+end
+
 function lpcre.version()
   return ffi.string(pcre.pcre_version())
 end
