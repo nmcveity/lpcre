@@ -1,0 +1,6 @@
+Expose libpcre to Lua using LuaJIT FFI.
+
+Overview:
+ - examples.lua shows usage examples
+ - examples contains an example of how you might run Lua with this library exampled
+   
