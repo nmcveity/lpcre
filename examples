@@ -1,3 +1,3 @@
 #! /bin/sh
-export LUA_PATH=$LUA_PATH\;$PWD/src/?/init.lua
+export LUA_PATH=$LUA_PATH\;$PWD/src/?/init.lua\;$PWD/src/?.lua
 `which luajit` examples.lua
