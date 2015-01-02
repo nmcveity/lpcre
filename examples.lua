@@ -1,5 +1,12 @@
 local lpcre = require 'lpcre'
 
+print(string.format("PCRE version is: %s", lpcre.version()))
+print('PCRE build configuration:')
+
+for k,v in pairs(lpcre.config()) do
+  print(string.format('   %s: %s', tostring(k), tostring(v)))
+end
+
 local re_version = lpcre.compile([[(\d+)\.(\d+)]])
 local match = re_version:match(_VERSION)
 
@@ -17,6 +24,10 @@ print(string.format("The LuaJIT version is: major:%s minor:%s patch:%s", jitmatc
 local hexparser_short = lpcre.compile([[^\#(?P<r>[0-9a-fA-F])(?P<g>[0-9a-fA-F])(?P<b>[0-9a-fA-F])$]])
 local hexparser_long = lpcre.compile([[^\#(?P<r>[0-9a-fA-F]{2})(?P<g>[0-9a-fA-F]{2})(?P<b>[0-9a-fA-F]{2})$]])
 local hexparser_rgb = lpcre.compile([[^rgb\((?P<r>\d+)\,(?P<g>\d+)\,(?P<b>\d+)\)$]])
+
+hexparser_short:study_jit()
+hexparser_long:study_jit()
+hexparser_rgb:study_jit()
 
 local function parseColor(def)
   local m = hexparser_short:match(def)

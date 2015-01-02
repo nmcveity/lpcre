@@ -499,12 +499,27 @@ local CompiledPattern_mt = { __index = CompiledPattern }
 
 function CompiledPattern_mt:__gc()
   pcre.pcre_free(self._re)
+  pcre.pcre_free_study(self._study)
   self._re = nil
 end
 
 function CompiledPattern:initInstance(re)
   self._re = re
   self.max_matches = 100
+end
+
+function CompiledPattern:study(...)
+  if not self._study then
+    local errptr = ffi.new('const char*[1]')
+    self._study = pcre.pcre_study(self._re, bit.bor(0, ...), errptr)
+    if errptr[0] ~= nil then
+      error(ffi.string(errptr[0]))
+    end
+  end
+end
+
+function CompiledPattern:study_jit()
+  self:study(pcre.PCRE_STUDY_JIT_COMPILE)
 end
 
 function CompiledPattern:match(subject, ...)
@@ -541,6 +556,91 @@ function lpcre.compile(pattern, ...)
     return nil, errorcodeptr[0], errorptr[0], erroroffset[0]
   end
   return CompiledPattern(re)
+end
+
+function lpcre.version()
+  return ffi.string(pcre.pcre_version())
+end
+
+local function _getIntegerBoolean(what)
+  local output = ffi.new('int[1]')
+  local result = pcre.pcre_config(what, output)
+  if result == 0 then
+    return output[0] ~= 0
+  end
+end
+
+local function _getInteger(what)
+  local output = ffi.new('int[1]')
+  local result = pcre.pcre_config(what, output)
+  if result == 0 then
+    return tonumber(output[0])
+  end
+end
+
+local function _getLong(what)
+  local output = ffi.new('long[1]')
+  local result = pcre.pcre_config(what, output)
+  if result == 0 then
+    return tonumber(output[0])
+  end
+end
+
+local function _getString(what)
+  local output = ffi.new('const char*[1]')
+  local result = pcre.pcre_config(what, output)
+  if result == 0 then
+    if output[0] ~= nil then
+      return ffi.string(output[0])
+    end
+  end
+end
+
+local function _decodeNewLine(v)
+  if v == 10 then
+    return "LF"
+  elseif v == 13 then
+    return "CR"
+  elseif v == 3338 then
+    return "CRLF"
+  elseif v == -2 then
+    return "ANYCRLF"
+  elseif v == -1 then
+    return "ANY"
+  end
+end
+
+local _config = nil
+
+function lpcre.config()
+  if not _config then
+    _config = {
+      ['utf8']
+        = _getIntegerBoolean(pcre.PCRE_CONFIG_UTF8),
+      ['unicode character properties']
+        = _getIntegerBoolean(pcre. PCRE_CONFIG_UNICODE_PROPERTIES),
+      ['jit']
+        = _getIntegerBoolean(pcre.PCRE_CONFIG_JIT),
+      ['jit target']
+        = _getString(pcre.PCRE_CONFIG_JITTARGET),
+      ['new line']
+        = _decodeNewLine(_getInteger(pcre.PCRE_CONFIG_NEWLINE)),
+      ['bsr']
+        = _getInteger(pcre.PCRE_CONFIG_BSR),
+      ['link size']
+        = _getInteger(pcre.PCRE_CONFIG_LINK_SIZE),
+      ['posix malloc threshold']
+        = _getInteger(pcre.PCRE_CONFIG_POSIX_MALLOC_THRESHOLD),
+      ['match limit']
+        = _getLong(pcre.PCRE_CONFIG_MATCH_LIMIT),
+      ['match limit recursion']
+        = _getLong(pcre.PCRE_CONFIG_MATCH_LIMIT_RECURSION),
+      ['stack recurse']
+        = _getInteger(pcre.PCRE_CONFIG_STACKRECURSE),
+
+    }
+  end
+  return _config
 end
 
 return lpcre
