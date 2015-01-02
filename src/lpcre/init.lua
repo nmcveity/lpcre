@@ -420,6 +420,9 @@ void pcre16_assign_jit_stack(pcre16_extra *,
 
 local pcre = ffi.load 'pcre'
 
+-------------------------------------------------------------------------------
+-- Match object
+
 local Match = {}
 local Match_mt = { __index = Match }
 
@@ -453,12 +456,28 @@ function Match:_populateGroupIndex(n)
   self._groups[n] = ffi.string(buffer[0])
 end
 
-function Match:group(n)
-  if not self:_validGroupIndex(n) then
+function Match:_populateGroupName(n)
+  local buffer = ffi.new('const char*[1]')
+  local result = pcre.pcre_get_named_substring(self._re, self._subject, self._ovector, self._ovectorsize, tostring(n), buffer)
+  if result == pcre.PCRE_ERROR_NOSUBSTRING then
     return
   end
-  if not self._groups[n] then
-    self:_populateGroupIndex(n)
+  if result < 0 then
+    error("error extracting string")
+  end
+  self._groups[n] = ffi.string(buffer[0])
+end
+
+function Match:group(n)
+  if type(n) == "number" then
+    if not self:_validGroupIndex(n) then
+      return
+    end
+    if not self._groups[n] then
+      self:_populateGroupIndex(n)
+    end
+  elseif type(n) == "string" then
+    self:_populateGroupName(n)
   end
   return self._groups[n]
 end
@@ -472,6 +491,8 @@ setmetatable(Match, {
   end
 })
 
+-------------------------------------------------------------------------------
+-- CompiledPattern object
 
 local CompiledPattern = {}
 local CompiledPattern_mt = { __index = CompiledPattern }
@@ -489,6 +510,9 @@ end
 function CompiledPattern:match(subject, ...)
   local ovector = ffi.new('int[?]', self.max_matches*3)
   local execresult = pcre.pcre_exec(self._re, nil, subject, #subject, 0, bit.bor(0, ...), ovector, self.max_matches*3)
+  if execresult == pcre.PCRE_ERROR_NOMATCH then
+    return
+  end
   if execresult < 0 then
     error("Error executing regex: "..tostring(execresult))
   end
@@ -503,6 +527,9 @@ setmetatable(CompiledPattern, {
     return obj
   end
 })
+
+-------------------------------------------------------------------------------
+-- Module
 
 function lpcre.compile(pattern, ...)
   local options = bit.bor(0, ...)
