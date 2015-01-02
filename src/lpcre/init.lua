@@ -566,8 +566,12 @@ function CompiledPattern:study_jit()
 end
 
 function CompiledPattern:match(subject, ...)
+  return self:match_from(subject, 0, ...)
+end
+
+function CompiledPattern:match_from(subject, start_index, ...)
   local ovector = ffi.new('int[?]', self.max_matches*3)
-  local execresult = pcre.pcre_exec(self._re, nil, subject, #subject, 0, bit.bor(0, ...), ovector, self.max_matches*3)
+  local execresult = pcre.pcre_exec(self._re, nil, subject, #subject, start_index, bit.bor(0, ...), ovector, self.max_matches*3)
   if execresult == pcre.PCRE_ERROR_NOMATCH then
     return
   end
@@ -575,6 +579,20 @@ function CompiledPattern:match(subject, ...)
     error("Error executing regex: "..tostring(execresult))
   end
   return Match(subject, self._re, ovector, execresult)
+end
+
+function CompiledPattern:iterate_all(subject, ...)
+  return coroutine.wrap(function ()
+    local value, start_index, end_index = nil, 0, -1
+    while end_index+1 < #subject do
+      local m = self:match_from(subject, end_index+1)
+      if not m then
+        return
+      end
+      coroutine.yield(m)
+      value, start_index, end_index = m:groupinfo(0)
+    end
+  end)
 end
 
 setmetatable(CompiledPattern, {
@@ -601,8 +619,12 @@ function lpcre.compile(pattern, ...)
   return CompiledPattern(re)
 end
 
-function lpcre:match(pattern, subject, ...)
-  return lpcre.compile(pattern):match(subject)
+function lpcre.match(pattern, subject, ...)
+  return lpcre.compile(pattern, ...):match(subject)
+end
+
+function lpcre.iterate_all(pattern, subject, ...)
+  return lpcre.compile(pattern, ...):iterate_all(subject)
 end
 
 function lpcre.version()

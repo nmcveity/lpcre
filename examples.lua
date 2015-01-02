@@ -81,3 +81,13 @@ printColor('rg(255,255,127)')
 for value, start_index, end_index in hexparser_rgb:match('rgb(63,127,191)'):itergroups() do
   print(string.format("Found \'%s\' between %d and %d (inclusive)", value, start_index, end_index))
 end
+
+local sentence = "The quick brown fox jumps over the lazy dog"
+
+print("Sentence is: "..sentence)
+print("All the words in that sentence are: ")
+for match in lpcre.iterate_all([[(\S+)]], sentence) do
+  print(" * "..match:group(0))
+end
+
+
